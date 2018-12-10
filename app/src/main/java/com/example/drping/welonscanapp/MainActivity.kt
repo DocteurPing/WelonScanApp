@@ -17,6 +17,7 @@ import android.widget.TextView
 import com.squareup.okhttp.*
 import java.io.File
 import java.io.FileOutputStream
+import java.io.IOException
 import java.util.*
 
 
@@ -24,6 +25,7 @@ class MainActivity : AppCompatActivity() {
 
     lateinit var imageView: ImageView
     lateinit var textView: TextView
+    var responseText = "test"
 
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -51,13 +53,13 @@ class MainActivity : AppCompatActivity() {
         val random = Random()
         var n = 10000
         n = random.nextInt(n)
-        val filename = "Image-$n.png"
+        val filename = "Image-$n.jpg"
         val file = File(myDir, filename)
         if (file.exists())
             file.delete()
         try {
             val out = FileOutputStream(file)
-            finalBitmap.compress(Bitmap.CompressFormat.PNG, 100, out)
+            finalBitmap.compress(Bitmap.CompressFormat.JPEG, 100, out)
             out.flush()
             out.close()
             Log.d("ok", "ok noice $root $filename")
@@ -69,27 +71,41 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun uploadImage(file: File) {
-        //try {
-            val mediaTypePNG = MediaType.parse("image/png")
+        try {
+            val mediaTypePNG = MediaType.parse("image/jpg")
             val req : RequestBody =  MultipartBuilder()
                 .type(MultipartBuilder.FORM)
-                .addFormDataPart("body", "image.png", RequestBody.create(mediaTypePNG, file)).build()
+                .addFormDataPart("body", "image.jpg", RequestBody.create(mediaTypePNG, file)).build()
             val request = Request.Builder()
                 .url("https://southcentralus.api.cognitive.microsoft.com/customvision/v2.0/Prediction/fe93df1e-1dc3-467f-b772-9b2ea0a9ee11/url?iterationId=8ffb8e80-8290-4792-a5d3-bdcf4de23235")
                 .header("Prediction-Key", "9eee5bb5cc83426c84c2c96d581e0d7b")
-                .header("Content-Type", "application/json")
+                .header("Content-Type", "application/octet-stream")
                 .post(req)
                 .build()
 
             val client = OkHttpClient()
             Log.d("lel", "oktamer")
-            val response = client.newCall(request).execute()
-            textView.text = response.toString()
-        //} catch (e: java.lang.Exception) {
-        //    Log.d("lel", "no")
-        //}
+            client.newCall(request).enqueue(object : Callback {
+                override fun onResponse(response: Response?) {
+                    responseText = response.toString()
+                    runOnUiThread(
+                        fun() {
+                            textView.text = responseText
+                        }
+                    )
+                }
+                override fun onFailure(request: Request?, e: IOException?) {
+                }
+            })
+        } catch (e: java.lang.Exception) {
+            Log.d("lel", "no")
+        }
 
 
+    }
+
+    private fun changeText() {
+        textView.text = responseText
     }
 
     private fun isStoragePermissionGranted(): Boolean {
