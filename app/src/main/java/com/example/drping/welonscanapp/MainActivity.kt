@@ -1,6 +1,7 @@
 package com.example.drping.welonscanapp
 
 import android.Manifest
+import android.annotation.SuppressLint
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
@@ -14,11 +15,23 @@ import android.util.Log
 import android.view.View
 import android.widget.ImageView
 import android.widget.TextView
-import com.squareup.okhttp.*
+import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.FileOutputStream
-import java.io.IOException
 import java.util.*
+import jdk.nashorn.internal.runtime.ECMAErrors.getMessage
+import com.google.api.client.http.UrlEncodedContent.getContent
+import com.google.api.client.googleapis.json.GoogleJsonResponseException
+import com.google.api.services.vision.v1.model.BatchAnnotateImagesResponse
+import com.google.api.services.vision.v1.Vision
+import com.google.api.services.vision.v1.model.BatchAnnotateImagesRequest
+import com.google.api.services.vision.v1.VisionRequestInitializer
+import com.google.api.client.json.gson.GsonFactory
+import com.google.api.client.extensions.android.http.AndroidHttp
+import com.google.api.client.http.HttpTransport
+import android.os.AsyncTask
+import android.support.v4.app.FragmentActivity
+import java.io.IOException
 
 
 class MainActivity : AppCompatActivity() {
@@ -67,45 +80,54 @@ class MainActivity : AppCompatActivity() {
         } catch (e: Exception) {
             e.printStackTrace()
         }
-        uploadImage(file)
+        uploadImage(finalBitmap)
     }
 
-    private fun uploadImage(file: File) {
-        try {
-            val mediaTypePNG = MediaType.parse("image/jpg")
-            val req : RequestBody =  MultipartBuilder()
-                .type(MultipartBuilder.FORM)
-                .addFormDataPart("body", "image.jpg", RequestBody.create(mediaTypePNG, file)).build()
-            val request = Request.Builder()
-                .url("https://southcentralus.api.cognitive.microsoft.com/customvision/v2.0/Prediction/fe93df1e-1dc3-467f-b772-9b2ea0a9ee11/url?iterationId=8ffb8e80-8290-4792-a5d3-bdcf4de23235")
-                .header("Prediction-Key", "9eee5bb5cc83426c84c2c96d581e0d7b")
-                .header("Content-Type", "application/octet-stream")
-                .post(req)
-                .build()
+    private fun uploadImage(bitmap: Bitmap) {
+        val base64EncodedImage = com.google.api.services.vision.v1.model.Image()
+        val byteArrayOutputStream = ByteArrayOutputStream()
+        bitmap.compress(Bitmap.CompressFormat.JPEG, 90, byteArrayOutputStream)
+        val imageBytes = byteArrayOutputStream.toByteArray()
+        base64EncodedImage.encodeContent(imageBytes)
+        object : AsyncTask<Any, Void, String>() {
+            override fun doInBackground(vararg params: Any): String {
+                try {
 
-            val client = OkHttpClient()
-            Log.d("lel", "oktamer")
-            client.newCall(request).enqueue(object : Callback {
-                override fun onResponse(response: Response?) {
-                    responseText = response.toString()
-                    runOnUiThread(
-                        fun() {
-                            textView.text = responseText
-                        }
+                    val httpTransport = AndroidHttp.newCompatibleTransport()
+                    val jsonFactory = GsonFactory.getDefaultInstance()
+
+                    val requestInitializer = VisionRequestInitializer(CLOUD_VISION_API_KEY)
+
+                    val builder = Vision.Builder(httpTransport, jsonFactory, null)
+                    builder.setVisionRequestInitializer(requestInitializer)
+
+                    val vision = builder.build()
+
+                    val batchAnnotateImagesRequest = BatchAnnotateImagesRequest()
+                    batchAnnotateImagesRequest.requests = annotateImageRequests
+
+                    val annotateRequest = vision.images().annotate(batchAnnotateImagesRequest)
+                    annotateRequest.disableGZipContent = true
+                    val response = annotateRequest.execute()
+
+                    return convertResponseToString(response)
+                } catch (e: GoogleJsonResponseException) {
+                    Log.d(FragmentActivity.TAG, "failed to make API request because " + e.content)
+                } catch (e: IOException) {
+                    Log.d(
+                        FragmentActivity.TAG,
+                        "failed to make API request because of other IOException " + e.getMessage()
                     )
                 }
-                override fun onFailure(request: Request?, e: IOException?) {
-                }
-            })
-        } catch (e: java.lang.Exception) {
-            Log.d("lel", "no")
-        }
 
+                return "Cloud Vision API request failed. Check logs for details."
+            }
 
-    }
-
-    private fun changeText() {
-        textView.text = responseText
+            override fun onPostExecute(result: String) {
+                visionAPIData.setText(result)
+                imageUploadProgress.setVisibility(View.INVISIBLE)
+            }
+        }.execute()
     }
 
     private fun isStoragePermissionGranted(): Boolean {
