@@ -133,12 +133,21 @@ class MainActivity : AppCompatActivity() {
             @SuppressLint("SetTextI18n")
             override fun onPostExecute(result: String) {
                 val json = JSONObject(result)
-                val labelAnnotation = json.getJSONArray("responses").getJSONObject(0).getJSONArray("labelAnnotations").getJSONObject(0).getString("description")
-                var percent = json.getJSONArray("responses").getJSONObject(0).getJSONArray("labelAnnotations").getJSONObject(0).getString("score").toDouble()
-                percent *= 100
-                percent = round(percent * 100) / 100
-                Log.d("Response", labelAnnotation.toString())
-                textView.text = labelAnnotation.toString() + " " + percent + "%"
+                lateinit var textToDisplay : String
+                for (i in 0..(json.getJSONArray("responses").getJSONObject(0).getJSONArray("labelAnnotations").length() - 1)) {
+                    val labelAnnotation = json.getJSONArray("responses").getJSONObject(0).getJSONArray("labelAnnotations").getJSONObject(i).getString("description")
+                    var percent = json.getJSONArray("responses").getJSONObject(0).getJSONArray("labelAnnotations").getJSONObject(i).getString("score").toDouble()
+                    percent *= 100
+                    percent = round(percent * 100) / 100
+                    Log.d("Response", labelAnnotation.toString())
+                    textToDisplay = if (i == 0) {
+                        labelAnnotation.toString() + " " + percent + "%\n"
+                    } else {
+                        textToDisplay + labelAnnotation.toString() + " " + percent + "%\n"
+                    }
+                }
+                textView.text = textToDisplay
+
             }
         }
         MyTask().execute()
