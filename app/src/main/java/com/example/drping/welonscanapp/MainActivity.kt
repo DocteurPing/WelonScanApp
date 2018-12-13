@@ -1,10 +1,10 @@
 package com.example.drping.welonscanapp
 
 import android.Manifest
-import android.annotation.SuppressLint
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
+import android.os.AsyncTask
 import android.os.Build
 import android.os.Bundle
 import android.os.Environment
@@ -15,30 +15,25 @@ import android.util.Log
 import android.view.View
 import android.widget.ImageView
 import android.widget.TextView
+import com.google.api.client.extensions.android.http.AndroidHttp
+import com.google.api.client.googleapis.json.GoogleJsonResponseException
+import com.google.api.client.json.gson.GsonFactory
+import com.google.api.services.vision.v1.Vision
+import com.google.api.services.vision.v1.VisionRequestInitializer
+import com.google.api.services.vision.v1.model.AnnotateImageRequest
+import com.google.api.services.vision.v1.model.BatchAnnotateImagesRequest
+import com.google.api.services.vision.v1.model.Feature
 import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.FileOutputStream
-import java.util.*
-import jdk.nashorn.internal.runtime.ECMAErrors.getMessage
-import com.google.api.client.http.UrlEncodedContent.getContent
-import com.google.api.client.googleapis.json.GoogleJsonResponseException
-import com.google.api.services.vision.v1.model.BatchAnnotateImagesResponse
-import com.google.api.services.vision.v1.Vision
-import com.google.api.services.vision.v1.model.BatchAnnotateImagesRequest
-import com.google.api.services.vision.v1.VisionRequestInitializer
-import com.google.api.client.json.gson.GsonFactory
-import com.google.api.client.extensions.android.http.AndroidHttp
-import com.google.api.client.http.HttpTransport
-import android.os.AsyncTask
-import android.support.v4.app.FragmentActivity
 import java.io.IOException
-
+import java.util.*
 
 class MainActivity : AppCompatActivity() {
-
     lateinit var imageView: ImageView
     lateinit var textView: TextView
     var responseText = "test"
+    var CLOUD_VISION_API_KEY = "AIzaSyD974zlD8-dlbxUF5w2Et1sD5f4unVOHLU"
 
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -89,7 +84,8 @@ class MainActivity : AppCompatActivity() {
         bitmap.compress(Bitmap.CompressFormat.JPEG, 90, byteArrayOutputStream)
         val imageBytes = byteArrayOutputStream.toByteArray()
         base64EncodedImage.encodeContent(imageBytes)
-        object : AsyncTask<Any, Void, String>() {
+        class MyTask() : AsyncTask<Any, Void, String>() {
+
             override fun doInBackground(vararg params: Any): String {
                 try {
 
@@ -101,7 +97,15 @@ class MainActivity : AppCompatActivity() {
                     val builder = Vision.Builder(httpTransport, jsonFactory, null)
                     builder.setVisionRequestInitializer(requestInitializer)
 
+                    val feature = Feature()
+                    feature.type = "LANDMARK_DETECTION"
+                    feature.maxResults = 10
+                    val featureList : List<Feature> = listOf(feature)
                     val vision = builder.build()
+                    val annotateImageReq = AnnotateImageRequest()
+                    annotateImageReq.features = featureList
+                    annotateImageReq.image = base64EncodedImage
+                    val annotateImageRequests = listOf(annotateImageReq)
 
                     val batchAnnotateImagesRequest = BatchAnnotateImagesRequest()
                     batchAnnotateImagesRequest.requests = annotateImageRequests
@@ -110,13 +114,13 @@ class MainActivity : AppCompatActivity() {
                     annotateRequest.disableGZipContent = true
                     val response = annotateRequest.execute()
 
-                    return convertResponseToString(response)
+                    return response.toString()
                 } catch (e: GoogleJsonResponseException) {
-                    Log.d(FragmentActivity.TAG, "failed to make API request because " + e.content)
+                    Log.d("ok", "failed to make API request because " + e.content)
                 } catch (e: IOException) {
                     Log.d(
-                        FragmentActivity.TAG,
-                        "failed to make API request because of other IOException " + e.getMessage()
+                        "ok",
+                        "failed to make API request because of other IOException $e"
                     )
                 }
 
@@ -124,10 +128,10 @@ class MainActivity : AppCompatActivity() {
             }
 
             override fun onPostExecute(result: String) {
-                visionAPIData.setText(result)
-                imageUploadProgress.setVisibility(View.INVISIBLE)
+                textView.text = result
             }
-        }.execute()
+        }
+        MyTask().execute()
     }
 
     private fun isStoragePermissionGranted(): Boolean {
