@@ -1,6 +1,7 @@
 package com.example.drping.welonscanapp
 
 import android.Manifest
+import android.annotation.SuppressLint
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
@@ -23,11 +24,13 @@ import com.google.api.services.vision.v1.VisionRequestInitializer
 import com.google.api.services.vision.v1.model.AnnotateImageRequest
 import com.google.api.services.vision.v1.model.BatchAnnotateImagesRequest
 import com.google.api.services.vision.v1.model.Feature
+import org.json.JSONObject
 import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.FileOutputStream
 import java.io.IOException
 import java.util.*
+import kotlin.math.round
 
 class MainActivity : AppCompatActivity() {
     lateinit var imageView: ImageView
@@ -98,7 +101,7 @@ class MainActivity : AppCompatActivity() {
                     builder.setVisionRequestInitializer(requestInitializer)
 
                     val feature = Feature()
-                    feature.type = "LANDMARK_DETECTION"
+                    feature.type = "LABEL_DETECTION"
                     feature.maxResults = 10
                     val featureList : List<Feature> = listOf(feature)
                     val vision = builder.build()
@@ -127,8 +130,15 @@ class MainActivity : AppCompatActivity() {
                 return "Cloud Vision API request failed. Check logs for details."
             }
 
+            @SuppressLint("SetTextI18n")
             override fun onPostExecute(result: String) {
-                textView.text = result
+                val json = JSONObject(result)
+                val labelAnnotation = json.getJSONArray("responses").getJSONObject(0).getJSONArray("labelAnnotations").getJSONObject(0).getString("description")
+                var percent = json.getJSONArray("responses").getJSONObject(0).getJSONArray("labelAnnotations").getJSONObject(0).getString("score").toDouble()
+                percent *= 100
+                percent = round(percent * 100) / 100
+                Log.d("Response", labelAnnotation.toString())
+                textView.text = labelAnnotation.toString() + " " + percent + "%"
             }
         }
         MyTask().execute()
