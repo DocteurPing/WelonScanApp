@@ -35,7 +35,6 @@ import kotlin.math.round
 class MainActivity : AppCompatActivity() {
     lateinit var imageView: ImageView
     lateinit var textView: TextView
-    var responseText = "test"
     var CLOUD_VISION_API_KEY = "AIzaSyD974zlD8-dlbxUF5w2Et1sD5f4unVOHLU"
 
 
@@ -87,7 +86,7 @@ class MainActivity : AppCompatActivity() {
         bitmap.compress(Bitmap.CompressFormat.JPEG, 90, byteArrayOutputStream)
         val imageBytes = byteArrayOutputStream.toByteArray()
         base64EncodedImage.encodeContent(imageBytes)
-        class MyTask() : AsyncTask<Any, Void, String>() {
+        class MyTask : AsyncTask<Any, Void, String>() {
 
             override fun doInBackground(vararg params: Any): String {
                 try {
